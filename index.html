@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Three Riddle Problem</title>
+    <style>
+        /* ────────── RESET & BASE ────────── */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --gold: #f0c060;
+            --gold-dim: #9a7040;
+            --gold-dark: #3a2810;
+            --bg: #080818;
+            --panel: #111128;
+            --panel-alt: #0d0d20;
+            --text: #d0b890;
+            --text-dim: #7a6040;
+            --border: #2a2840;
+            --border-gold: rgba(240, 192, 96, 0.35);
+            --error: #c04848;
+            --success: #48a068;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Georgia, 'Times New Roman', serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            overflow-x: hidden;
+        }
+
+        #canvas-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        #app {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 880px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* ────────── SCREENS ────────── */
+        .screen {
+            display: none;
+            width: 100%;
+            flex-direction: column;
+            align-items: center;
+            padding: 48px 16px 64px;
+        }
+        .screen.active { display: flex; }
+        .screen.animate {
+            animation: fadeUp 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(28px); }
+            to   { opacity: 1; transform: translateY(0);    }
+        }
+
+        /* ────────── WELCOME SCREEN ────────── */
+        .welcome-crest {
+            font-size: 3em;
+            margin-bottom: 24px;
+            animation: glow 3s ease infinite;
+        }
+        @keyframes glow {
+            0%, 100% { filter: drop-shadow(0 0 8px rgba(240,192,96,0.4)); }
+            50%       { filter: drop-shadow(0 0 22px rgba(240,192,96,0.75)); }
+        }
+
+        .welcome-title {
+            font-size: clamp(2.4em, 6vw, 3.8em);
+            text-align: center;
+            color: var(--gold);
+            letter-spacing: 5px;
+            text-shadow: 0 0 32px rgba(240,192,96,0.5);
+            margin-bottom: 12px;
+        }
+
+        .welcome-subtitle {
+            font-size: 1.1em;
+            color: var(--text-dim);
+            text-align: center;
+            font-style: italic;
+            margin-bottom: 36px;
+            letter-spacing: 2px;
+        }
+
+        .ornament {
+            color: var(--gold-dim);
+            letter-spacing: 12px;
+            font-size: 1.2em;
+            margin: 6px 0 32px;
+        }
+
+        .welcome-intro {
+            max-width: 520px;
+            text-align: center;
+            line-height: 1.85;
+            color: var(--text);
+            margin-bottom: 52px;
+            font-size: 1.05em;
+        }
+
+        .welcome-image-wrap {
+            position: relative;
+            width: 100%;
+            max-width: 620px;
+            margin: 0 0 40px;
+            border: 1px solid var(--border-gold);
+            overflow: hidden;
+            line-height: 0;
+            box-shadow: 0 8px 48px rgba(0,0,0,0.55), 0 0 40px rgba(240,192,96,0.08);
+        }
+        .welcome-image-wrap img {
+            width: 100%;
+            height: auto;
+            display: block;
+            opacity: 0.82;
+            transition: opacity 0.5s;
+        }
+        .welcome-image-wrap:hover img { opacity: 1; }
+        .welcome-image-caption {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 12px 18px;
+            background: linear-gradient(transparent, rgba(4, 4, 14, 0.85));
+            font-size: 0.78em;
+            letter-spacing: 2px;
+            color: var(--gold-dim);
+            text-transform: uppercase;
+            line-height: 1;
+            text-align: right;
+        }
+
+        /* ────────── BUTTONS ────────── */
+        .btn {
+            padding: 14px 44px;
+            border: 1px solid var(--gold);
+            background: transparent;
+            color: var(--gold);
+            font-family: Georgia, serif;
+            font-size: 1em;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: box-shadow 0.3s, transform 0.2s;
+        }
+        .btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(240,192,96,0.08);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .btn:hover::after { opacity: 1; }
+        .btn:hover {
+            box-shadow: 0 0 24px var(--border-gold);
+            transform: translateY(-2px);
+        }
+        .btn:active { transform: translateY(0); }
+
+        .btn-ghost {
+            padding: 10px 28px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-dim);
+            font-family: Georgia, serif;
+            font-size: 0.9em;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: border-color 0.3s, color 0.3s, transform 0.2s;
+        }
+        .btn-ghost:hover {
+            border-color: var(--gold-dim);
+            color: var(--text);
+            transform: translateY(-1px);
+        }
+
+        /* ────────── PANEL ────────── */
+        .panel {
+            background: linear-gradient(150deg, var(--panel), var(--panel-alt));
+            border: 1px solid var(--border);
+            position: relative;
+        }
+        .panel::before, .panel::after {
+            content: '✦';
+            position: absolute;
+            color: var(--border);
+            font-size: 14px;
+        }
+        .panel::before { top: 14px;  left: 18px; }
+        .panel::after  { bottom: 14px; right: 18px; }
+
+        /* ────────── SELECT SCREEN ────────── */
+        .screen-heading {
+            font-size: 1.7em;
+            color: var(--gold);
+            letter-spacing: 3px;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .screen-sub {
+            font-style: italic;
+            color: var(--text-dim);
+            text-align: center;
+            margin-bottom: 52px;
+            letter-spacing: 1px;
+        }
+
+        .cards-row {
+            display: flex;
+            gap: 22px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            margin-bottom: 40px;
+        }
+
+        .riddle-card {
+            flex: 1;
+            min-width: 210px;
+            max-width: 250px;
+            padding: 32px 20px 26px;
+            cursor: pointer;
+            text-align: center;
+            background: linear-gradient(150deg, var(--panel), var(--panel-alt));
+            border: 1px solid var(--border);
+            transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+        }
+        .riddle-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--gold);
+            box-shadow: 0 18px 48px rgba(0,0,0,0.5), 0 0 30px var(--border-gold);
+        }
+        .riddle-card:hover .card-icon { animation: bounce 0.6s ease; }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            40%      { transform: translateY(-10px); }
+        }
+
+        .card-icon  { font-size: 2.8em; display: block; margin-bottom: 16px; }
+        .card-name  { font-size: 1.15em; color: var(--gold); margin-bottom: 10px; letter-spacing: 1px; }
+        .card-desc  { font-size: 0.88em; color: var(--text-dim); line-height: 1.65; font-style: italic; margin-bottom: 18px; }
+        .card-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border: 1px solid var(--border);
+            font-size: 0.72em;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .card-badge.multi { border-color: #3a5030; color: #6a9050; }
+
+        /* ────────── INTRO SCREEN ────────── */
+        .intro-panel {
+            max-width: 580px;
+            width: 100%;
+            padding: 52px 44px;
+            text-align: center;
+        }
+
+        .intro-icon  { font-size: 3.2em; display: block; margin: 16px 0; }
+        .intro-title { font-size: 1.9em; color: var(--gold); letter-spacing: 2px; margin-bottom: 4px; }
+
+        .rule {
+            width: 100px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+            margin: 20px auto;
+        }
+
+        .intro-body {
+            line-height: 1.9;
+            color: var(--text);
+            margin-bottom: 36px;
+            font-size: 1.03em;
+        }
+        .intro-body em { color: #b0906a; }
+
+        .intro-image-wrap {
+            position: relative;
+            width: 100%;
+            margin: 0 0 28px;
+            border: 1px solid var(--border-gold);
+            overflow: hidden;
+            line-height: 0;
+        }
+        .intro-image-wrap img {
+            width: 100%;
+            height: auto;
+            display: block;
+            opacity: 0.88;
+            transition: opacity 0.4s;
+        }
+        .intro-image-wrap:hover img { opacity: 1; }
+        .intro-image-caption {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 10px 16px;
+            background: linear-gradient(transparent, rgba(4, 4, 14, 0.82));
+            font-size: 0.78em;
+            letter-spacing: 2px;
+            color: var(--gold-dim);
+            text-transform: uppercase;
+            line-height: 1;
+            text-align: right;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ────────── RIDDLE SCREEN ────────── */
+        .riddle-panel {
+            max-width: 640px;
+            width: 100%;
+            padding: 48px 42px;
+            margin-bottom: 24px;
+        }
+
+        .riddle-tag {
+            font-size: 0.78em;
+            color: var(--text-dim);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 28px;
+        }
+
+        .chamber-image-wrap {
+            position: relative;
+            width: 100%;
+            margin: 0 0 28px;
+            border: 1px solid var(--border-gold);
+            overflow: hidden;
+            line-height: 0;
+        }
+        .chamber-image-wrap img {
+            width: 100%;
+            height: auto;
+            display: block;
+            opacity: 0.88;
+            transition: opacity 0.4s;
+        }
+        .chamber-image-wrap:hover img { opacity: 1; }
+        .chamber-image-caption {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 10px 16px;
+            background: linear-gradient(transparent, rgba(4, 4, 14, 0.82));
+            font-size: 0.78em;
+            letter-spacing: 2px;
+            color: var(--gold-dim);
+            text-transform: uppercase;
+            line-height: 1;
+            text-align: right;
+        }
+        .chamber-image-wrap.hidden { display: none; }
+
+        .riddle-q {
+            font-size: 1.35em;
+            line-height: 1.8;
+            color: #d8c090;
+            font-style: italic;
+            margin-bottom: 44px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+        }
+
+        .answer-input {
+            flex: 1;
+            padding: 12px 18px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: Georgia, serif;
+            font-size: 1em;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .answer-input:focus { border-color: var(--gold-dim); }
+        .answer-input.error   { border-color: var(--error);   animation: shake 0.38s ease; }
+        .answer-input.correct { border-color: var(--success); }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0);   }
+            20%      { transform: translateX(-7px); }
+            40%      { transform: translateX(7px);  }
+            60%      { transform: translateX(-5px); }
+            80%      { transform: translateX(5px);  }
+        }
+
+        .feedback {
+            margin-top: 14px;
+            font-size: 0.9em;
+            min-height: 1.2em;
+            color: var(--error);
+            transition: color 0.3s;
+        }
+        .feedback.ok { color: var(--success); }
+
+        /* ────────── LABYRINTH PROGRESS ────────── */
+        .progress-wrap {
+            width: 100%;
+            max-width: 640px;
+            margin-bottom: 20px;
+        }
+
+        .progress-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .progress-track {
+            height: 5px;
+            background: #18182e;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #704010, var(--gold));
+            transition: width 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .step-dots {
+            display: flex;
+            gap: 7px;
+            justify-content: center;
+            margin-top: 12px;
+        }
+        .dot {
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            background: #18182e;
+            border: 1px solid var(--border);
+            transition: background 0.4s, border-color 0.4s, box-shadow 0.4s;
+            cursor: default;
+        }
+        .dot.done    { background: #7a5820; border-color: var(--gold-dim); }
+        .dot.current { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 10px rgba(240,192,96,0.7); }
+
+        /* ────────── VICTORY SCREEN ────────── */
+        .victory-panel {
+            max-width: 560px;
+            width: 100%;
+            padding: 64px 44px;
+            text-align: center;
+            border-color: var(--gold);
+            box-shadow: 0 0 80px rgba(240,192,96,0.12), 0 0 160px rgba(240,192,96,0.05);
+        }
+
+        .victory-badge { font-size: 2.8em; margin-bottom: 20px; }
+
+        .victory-title {
+            font-size: 1.8em;
+            color: var(--gold);
+            letter-spacing: 5px;
+            text-shadow: 0 0 24px rgba(240,192,96,0.5);
+            margin-bottom: 24px;
+        }
+
+        .victory-msg {
+            color: var(--text-dim);
+            font-style: italic;
+            line-height: 1.85;
+            font-size: 1.03em;
+            margin-bottom: 44px;
+        }
+
+        .number-reveal {
+            font-size: 5.5em;
+            color: var(--gold);
+            font-weight: bold;
+            letter-spacing: 4px;
+            text-shadow: 0 0 40px rgba(240,192,96,0.9), 0 0 90px rgba(240,192,96,0.45);
+            margin: 4px 0 12px;
+            animation: numberPulse 2.4s ease infinite;
+        }
+        @keyframes numberPulse {
+            0%, 100% { text-shadow: 0 0 40px rgba(240,192,96,0.9), 0 0 90px rgba(240,192,96,0.45); }
+            50%       { text-shadow: 0 0 60px rgba(240,192,96,1),   0 0 130px rgba(240,192,96,0.6); }
+        }
+
+        .number-caption {
+            font-size: 0.8em;
+            color: var(--text-dim);
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-bottom: 48px;
+        }
+
+        /* ────────── MATRIX RIDDLE ────────── */
+        #matrix-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 32px);
+            gap: 3px;
+            margin: 20px auto 28px;
+            width: max-content;
+        }
+        .matrix-cell {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Courier New', monospace;
+            font-size: .95em;
+            font-weight: bold;
+            color: #e0c878;
+            border: 1px solid #2a2840;
+            background: #0e0e20;
+        }
+
+        /* ────────── UTILITY ────────── */
+        .mt-s { margin-top: 12px; }
+        .mt-m { margin-top: 24px; }
+        .mt-l { margin-top: 40px; }
+
+        /* ────────── CROSSWORD ────────── */
+        #cw-container {
+            width: 100%;
+            max-width: 980px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+        }
+        #cw-header {
+            text-align: center;
+            width: 100%;
+        }
+        #cw-clue-hint {
+            background: rgba(240,192,96,0.07);
+            border: 1px solid var(--border-gold);
+            padding: 10px 20px;
+            font-style: italic;
+            font-size: .93em;
+            color: var(--text-dim);
+            max-width: 760px;
+            margin: 0 auto;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.5;
+        }
+        #cw-scroll-wrap {
+            width: 100%;
+            overflow-x: auto;
+            padding-bottom: 6px;
+        }
+        #cw-grid {
+            display: grid;
+            gap: 2px;
+            width: max-content;
+            margin: 0 auto;
+        }
+        .cw-cell {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .9em;
+            font-weight: bold;
+            letter-spacing: 0;
+            color: #e0c878;
+            border: 1px solid #2a2840;
+            background: #0e0e20;
+            font-family: 'Courier New', monospace;
+        }
+        .cw-cell.highlight {
+            background: #4a3800;
+            border-color: #f0c060;
+            color: #ffe080;
+            box-shadow: 0 0 8px rgba(240,192,96,0.5);
+        }
+        .cw-cell.empty {
+            background: transparent;
+            border-color: transparent;
+            color: transparent;
+        }
+        .cw-cell.row-num {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            font-size: .75em;
+            font-weight: normal;
+            font-family: Georgia, serif;
+            justify-content: flex-end;
+            padding-right: 4px;
+            width: 22px;
+        }
+        .cw-cell input.cw-input {
+            width: 24px;
+            height: 24px;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #e0c878;
+            font-family: 'Courier New', monospace;
+            font-size: .9em;
+            font-weight: bold;
+            text-align: center;
+            text-transform: uppercase;
+            padding: 0;
+            cursor: text;
+            caret-color: var(--gold);
+        }
+        .cw-cell.highlight input.cw-input {
+            color: #ffe080;
+        }
+        #cw-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            max-width: 780px;
+        }
+        .cw-btn {
+            width: 38px;
+            height: 38px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-dim);
+            font-family: Georgia, serif;
+            font-size: .88em;
+            cursor: pointer;
+            transition: border-color .2s, color .2s, background .2s, transform .15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cw-btn:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+            background: rgba(240,192,96,0.07);
+            transform: translateY(-2px);
+        }
+        #cw-answer-section {
+            text-align: center;
+            width: 100%;
+        }
+        #cw-golden-word-label {
+            color: var(--text-dim);
+            font-size: .88em;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        #cw-golden-display {
+            color: var(--gold);
+            letter-spacing: 3px;
+            font-size: 1.05em;
+        }
+        /* popup */
+        .cw-popup-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(4,4,14,.72);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+        }
+        .cw-popup-overlay.open {
+            display: flex;
+            animation: fadeUp .3s ease;
+        }
+        .cw-popup-box {
+            background: var(--panel);
+            border: 1px solid var(--gold);
+            max-width: 540px;
+            width: 90%;
+            padding: 36px 32px;
+            text-align: center;
+            box-shadow: 0 0 60px rgba(240,192,96,.2);
+        }
+        .cw-popup-num {
+            font-size: 2em;
+            color: var(--gold);
+            margin-bottom: 16px;
+            letter-spacing: 4px;
+        }
+        .cw-popup-text {
+            color: var(--text);
+            line-height: 1.85;
+            font-size: .97em;
+            margin-bottom: 24px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="canvas-bg"></canvas>
+<div id="app">
+
+    <!-- ══════════════════════════════════════ WELCOME ══════════════════════════════════════ -->
+    <div id="screen-welcome" class="screen active">
+        <span class="welcome-crest">🔐</span>
+        <h1 class="welcome-title">THE THREE RIDDLE PROBLEM</h1>
+        <p class="welcome-subtitle">Three riddles &nbsp;·&nbsp; Three numbers &nbsp;·&nbsp; One lock</p>
+        <p class="ornament">✦ ✦ ✦</p>
+        <div class="welcome-image-wrap">
+            <img src="Group_picture.png" alt="The adventurers" />
+        </div>
+        <p class="welcome-intro">
+            Within this game you will find three riddles. Each riddle you solve will reveal a
+            number — pieces of a code that will open a lock.<br><br>
+            Good luck solving the riddles, may your mind be sharper than the edge of a blade.
+        </p>
+        <button class="btn" onclick="go('select')">Enter the Game</button>
+    </div>
+
+
+    <!-- ══════════════════════════════════════ SELECT ══════════════════════════════════════ -->
+    <div id="screen-select" class="screen">
+        <h2 class="screen-heading">Choose Your Riddle</h2>
+        <p class="screen-sub">Three paths lie before you</p>
+
+        <div class="cards-row">
+            <div class="riddle-card" onclick="go('intro-1')">
+                <span class="card-icon">🧩</span>
+                <div class="card-name">3 Bodylan Problem</div>
+                <p class="card-desc">A matrix of symbols hides a name. The clue tells you where to look.</p>
+                <span class="card-badge">Single Answer</span>
+            </div>
+            <div class="riddle-card" onclick="go('intro-2')">
+                <span class="card-icon">🚴</span>
+                <div class="card-name">The Cycling Chronicle</div>
+                <p class="card-desc">Nineteen clues about the spring classics. One golden column holds the secret code.</p>
+                <span class="card-badge">Crossword + Code</span>
+            </div>
+            <div class="riddle-card" onclick="go('intro-3')">
+                <span class="card-icon">☀️</span>
+                <div class="card-name">The Path of the Rising Sun</div>
+                <p class="card-desc">Ten locations. Ten words. Find every word to unlock part of the code.</p>
+                <span class="card-badge multi">10 Steps</span>
+            </div>
+        </div>
+
+        <button class="btn-ghost" onclick="go('welcome')">← Back</button>
+    </div>
+
+
+    <!-- ══════════════════════════════════════ INTRO 1 ══════════════════════════════════════ -->
+    <div id="screen-intro-1" class="screen">
+        <div class="panel intro-panel">
+            <h2 class="intro-title">3 Bodylan Problem</h2>
+            <span class="intro-icon">🧩</span>
+            <div class="rule"></div>
+            <p class="intro-body">
+                Just one hint is given for this riddle. Perseverance shall be rewarded.<br><br>
+                <em>"Find the answer hidden within the matrix, and the first part of the code shall be yours."</em>
+            </p>
+            <div class="btn-row">
+                <button class="btn-ghost" onclick="go('select')">← Back</button>
+                <button class="btn" onclick="go('riddle-1')">Open the Matrix</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ══════════════════════════════════════ INTRO 2 ══════════════════════════════════════ -->
+    <div id="screen-intro-2" class="screen">
+        <div class="panel intro-panel">
+            <h2 class="intro-title">The Cycling Chronicle</h2>
+            <span class="intro-icon">🚴</span>
+            <div class="rule"></div>
+            <div class="intro-image-wrap">
+                <img src="Patersberg.png" alt="The Patersberg" />
+            </div>
+            <p class="intro-body">
+                To retrieve the next part of the code, your knowledge of the great spring classics will be tested.
+            <br><br>
+                Read the highlighted column from top to bottom. That word holds the key.
+                Use it to find the four-digit code hidden at the end of the road.<br><br>
+                <em>"Only those who know the peloton shall claim the second secret."</em>
+            </p>
+            <div class="btn-row">
+                <button class="btn-ghost" onclick="go('select')">← Back</button>
+                <button class="btn" onclick="go('riddle-2')">Open the Crossword</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ══════════════════════════════════════ INTRO 3 ══════════════════════════════════════ -->
+    <div id="screen-intro-3" class="screen">
+        <div class="panel intro-panel">
+            <h2 class="intro-title">The Path of the Rising Sun</h2>
+            <span class="intro-icon">☀️</span>
+            <div class="rule"></div>
+            <div class="intro-image-wrap">
+                <img src="Departure.png" alt="Departure — the path begins" />
+                <span class="intro-image-caption">Departure</span>
+            </div>
+            <p class="intro-body">
+                To retrieve the next part of the code to open the lock, 
+                you must use Google Maps to wander around Japan and use the clues to find the word that we are looking for.<br><br>
+                <br><br>
+                <em>Ten riddles await. Answer them all, and another part of the code shall be yours.</em>
+            </p>
+            <div class="btn-row">
+                <button class="btn-ghost" onclick="go('select')">← Back</button>
+                <button class="btn" onclick="startLabyrinth()">Enter the Path</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ══════════════════════════════════════ RIDDLE 1 ══════════════════════════════════════ -->
+    <div id="screen-riddle-1" class="screen">
+        <div class="panel riddle-panel">
+            <p class="riddle-tag">3 Bodylan Problem &nbsp;·&nbsp; Riddle</p>
+            <p class="riddle-q">Oolaa niet eerst ook niet laatst</p>
+            <div id="matrix-grid">
+                <div class="matrix-cell">9</div><div class="matrix-cell">b</div><div class="matrix-cell">r</div><div class="matrix-cell">2</div><div class="matrix-cell">,</div><div class="matrix-cell">w</div><div class="matrix-cell">6</div><div class="matrix-cell">6</div><div class="matrix-cell">m</div><div class="matrix-cell">c</div>
+                <div class="matrix-cell">*</div><div class="matrix-cell">a</div><div class="matrix-cell">t</div><div class="matrix-cell">h</div><div class="matrix-cell">3</div><div class="matrix-cell">t</div><div class="matrix-cell">z</div><div class="matrix-cell">o</div><div class="matrix-cell">E</div><div class="matrix-cell">&gt;</div>
+                <div class="matrix-cell">m</div><div class="matrix-cell">D</div><div class="matrix-cell">j</div><div class="matrix-cell">n</div><div class="matrix-cell">n</div><div class="matrix-cell">5</div><div class="matrix-cell">§</div><div class="matrix-cell">6</div><div class="matrix-cell">Z</div><div class="matrix-cell">z</div>
+                <div class="matrix-cell">n</div><div class="matrix-cell">u</div><div class="matrix-cell">a</div><div class="matrix-cell">a</div><div class="matrix-cell">m</div><div class="matrix-cell">m</div><div class="matrix-cell">u</div><div class="matrix-cell">i</div><div class="matrix-cell">w</div><div class="matrix-cell">x</div>
+                <div class="matrix-cell">4</div><div class="matrix-cell">n</div><div class="matrix-cell">l</div><div class="matrix-cell">t</div><div class="matrix-cell">y</div><div class="matrix-cell">d</div><div class="matrix-cell">a</div><div class="matrix-cell">9</div><div class="matrix-cell">a</div><div class="matrix-cell">3</div>
+                <div class="matrix-cell">f</div><div class="matrix-cell">e</div><div class="matrix-cell">k</div><div class="matrix-cell">E</div><div class="matrix-cell">k</div><div class="matrix-cell">|</div><div class="matrix-cell">s</div><div class="matrix-cell">q</div><div class="matrix-cell">5</div><div class="matrix-cell">v</div>
+                <div class="matrix-cell">P</div><div class="matrix-cell">J</div><div class="matrix-cell">0</div><div class="matrix-cell">e</div><div class="matrix-cell">g</div><div class="matrix-cell">y</div><div class="matrix-cell">7</div><div class="matrix-cell">a</div><div class="matrix-cell">?</div><div class="matrix-cell">a</div>
+                <div class="matrix-cell">z</div><div class="matrix-cell">8</div><div class="matrix-cell">z</div><div class="matrix-cell">s</div><div class="matrix-cell">5</div><div class="matrix-cell">9</div><div class="matrix-cell">9</div><div class="matrix-cell">r</div><div class="matrix-cell">T</div><div class="matrix-cell">f</div>
+                <div class="matrix-cell">D</div><div class="matrix-cell">d</div><div class="matrix-cell">r</div><div class="matrix-cell">e</div><div class="matrix-cell">F</div><div class="matrix-cell">s</div><div class="matrix-cell">n</div><div class="matrix-cell">a</div><div class="matrix-cell">r</div><div class="matrix-cell">d</div>
+                <div class="matrix-cell">%</div><div class="matrix-cell">/</div><div class="matrix-cell">i</div><div class="matrix-cell">l</div><div class="matrix-cell">[</div><div class="matrix-cell">u</div><div class="matrix-cell">J</div><div class="matrix-cell">3</div><div class="matrix-cell">@</div><div class="matrix-cell">è</div>
+            </div>
+            <div class="input-row">
+                <input class="answer-input" id="ans-1" type="text" placeholder="Your answer…"
+                       autocomplete="off" onkeydown="if(event.key==='Enter') check(1)">
+                <button class="btn" onclick="check(1)">Submit</button>
+            </div>
+            <p class="feedback" id="fb-1"></p>
+        </div>
+        <button class="btn-ghost" onclick="go('intro-1')">← Back</button>
+    </div>
+
+
+    <!-- ══════════════════════════════════════ RIDDLE 2 (CROSSWORD) ══════════════════════════ -->
+    <div id="screen-riddle-2" class="screen">
+        <div id="cw-container">
+            <div id="cw-header">
+                <h2 class="screen-heading" style="margin-bottom:4px">The Cycling Chronicle</h2>
+                <p style="color:var(--text-dim);font-style:italic;font-size:.9em;margin-bottom:16px">Solve the crossword · read the golden column · enter the code</p>
+                <div id="cw-clue-hint">Click a number button to read its clue</div>
+            </div>
+            <div id="cw-scroll-wrap">
+                <div id="cw-grid"></div>
+            </div>
+            <div id="cw-buttons"></div>
+            <div id="cw-answer-section">
+                <p id="cw-golden-word-label">Golden column word: <span id="cw-golden-display">_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _</span></p>
+                <div class="input-row" style="max-width:420px;margin:12px auto 0">
+                    <input class="answer-input" id="ans-2" type="text" placeholder="Enter 4-digit code…"
+                           maxlength="6" autocomplete="off" onkeydown="if(event.key==='Enter') check(2)">
+                    <button class="btn" onclick="check(2)">Unlock</button>
+                </div>
+                <p class="feedback" id="fb-2"></p>
+            </div>
+        </div>
+        <!-- Clue popup -->
+        <div id="cw-popup" class="cw-popup-overlay" onclick="closeCluePop(event)">
+            <div class="cw-popup-box">
+                <div class="cw-popup-num" id="cw-pop-num">1</div>
+                <p class="cw-popup-text" id="cw-pop-text"></p>
+                <button class="btn-ghost" onclick="document.getElementById('cw-popup').classList.remove('open')">Close</button>
+            </div>
+        </div>
+        <div style="margin-top:20px">
+            <button class="btn-ghost" onclick="go('intro-2')">← Back</button>
+        </div>
+    </div>
+
+
+    <!-- ══════════════════════════════════════ RIDDLE 3 (multi-step) ══════════════════════════ -->
+    <div id="screen-riddle-3" class="screen">
+        <div class="progress-wrap">
+            <div class="progress-meta">
+                <span>The Path of the Rising Sun</span>
+                <span id="step-counter">Chamber 1 of 10</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+            </div>
+            <div class="step-dots" id="step-dots"></div>
+        </div>
+
+        <div class="panel riddle-panel">
+            <p class="riddle-tag" id="chamber-tag">Chamber I · Guardian's Riddle</p>
+            <div class="chamber-image-wrap" id="chamber-image-wrap-0">
+                <img src="MeijiJingu.png" alt="Tokyo" />
+                <span class="chamber-image-caption">Tokyo</span>
+            </div>
+            <div class="chamber-image-wrap hidden" id="chamber-image-wrap-1">
+                <img src="Sensojii.png" alt="Tokyo" />
+                <span class="chamber-image-caption">Tokyo</span>
+            </div>
+            <div class="chamber-image-wrap hidden" id="chamber-image-wrap-2">
+                <img src="Enoshima.png" alt="Enoshima, Kamakura" />
+                <span class="chamber-image-caption">Kamakura</span>
+            </div>
+            <div class="chamber-image-wrap hidden" id="chamber-image-wrap-3">
+                <img src="Nikko.png" alt="Nikko" />
+                <span class="chamber-image-caption">Nikko</span>
+            </div>
+            <div class="chamber-image-wrap hidden" id="chamber-image-wrap-4">
+                <img src="Takayama.png" alt="Takayama" />
+                <span class="chamber-image-caption">Takayama</span>
+            </div>
+            <div class="chamber-image-wrap hidden" id="chamber-image-wrap-5">
+                <img src="Shirakawa-go.png" alt="Shirakawa-go" />
+                <span class="chamber-image-caption">Shirakawa-go</span>
+            </div>
+            <div class="chamber-image-wrap hidden" id="chamber-image-wrap-6">
+                <img src="Kyoto1.png" alt="Kyoto" />
+                <span class="chamber-image-caption">Kyoto</span>
+            </div>
+            <div class="chamber-image-wrap hidden" id="chamber-image-wrap-7">
+                <img src="Kyoto2.png" alt="Kyoto" />
+                <span class="chamber-image-caption">Kyoto</span>
+            </div>
+            <div class="chamber-image-wrap hidden" id="chamber-image-wrap-8">
+                <img src="Miyajima.png" alt="Miyajima" />
+                <span class="chamber-image-caption">Miyajima</span>
+            </div>
+            <div class="chamber-image-wrap hidden" id="chamber-image-wrap-9">
+                <img src="Koya-san.png" alt="Koya-san" />
+                <span class="chamber-image-caption">Koya-san</span>
+            </div>
+            <p class="riddle-q" id="chamber-q"></p>
+            <div class="input-row">
+                <input class="answer-input" id="ans-3" type="text" placeholder="Your answer…"
+                       autocomplete="off" onkeydown="if(event.key==='Enter') checkStep()">
+                <button class="btn" onclick="checkStep()">Submit</button>
+            </div>
+            <p class="feedback" id="fb-3"></p>
+        </div>
+        <button class="btn-ghost" onclick="leaveLabyrinth()">✕ Leave the Path</button>
+    </div>
+
+
+    <!-- ══════════════════════════════════════ VICTORY 1 ══════════════════════════════════════ -->
+    <div id="screen-victory-1" class="screen">
+        <div class="panel victory-panel">
+            <div class="victory-badge">🧩</div>
+            <h2 class="victory-title">✦ SOLVED ✦</h2>
+            <p class="victory-msg">
+                The matrix yields its secret. A hidden number is revealed — the first piece of the code.
+            </p>
+            <div class="rule"></div>
+            <div class="number-reveal" id="secret-1"></div>
+            <p class="number-caption">The First Secret</p>
+            <div class="btn-row">
+                <button class="btn-ghost" onclick="go('select')">← Try Another</button>
+                <button class="btn" onclick="go('welcome')">Return to the main page</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ══════════════════════════════════════ VICTORY 2 ══════════════════════════════════════ -->
+    <div id="screen-victory-2" class="screen">
+        <div class="panel victory-panel">
+            <div class="victory-badge">🚴</div>
+            <h2 class="victory-title">✦ SOLVED ✦</h2>
+            <p class="victory-msg">
+                You have proven to be a true master of the spring classics! As a reward, here is another part of the code:
+            </p>
+            <div class="rule"></div>
+            <div class="number-reveal" id="secret-2"></div>
+            <p class="number-caption">The Second Secret</p>
+            <div class="btn-row">
+                <button class="btn-ghost" onclick="go('select')">← Try Another</button>
+                <button class="btn" onclick="go('welcome')">Return to the main page</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ══════════════════════════════════════ VICTORY 3 ══════════════════════════════════════ -->
+    <div id="screen-victory-3" class="screen">
+        <div class="panel victory-panel">
+            <div class="victory-badge">🏆</div>
+            <h2 class="victory-title">✦ CONQUERED ✦</h2>
+            <p class="victory-msg">
+                Another part of the code reveals itself. Well done on walking the path of the rising sun. You are now ready to travel to Japan!
+            </p>
+            <div class="rule"></div>
+            <div class="number-reveal" id="secret-3"></div>
+            <p class="number-caption">The Third Secret &nbsp;·&nbsp; Another part of the code</p>
+            <div class="btn-row">
+                <button class="btn-ghost" onclick="go('select')">← Try Another</button>
+                <button class="btn" onclick="go('welcome')">Return to the main page</button>
+            </div>
+        </div>
+    </div>
+
+</div><!-- #app -->
+
+<script>
+/* ================================================================
+   RIDDLE DATA
+   ================================================================ */
+const RIDDLES = {
+    1: { answers: ['ZGUgYWxhaW5rZXM='],                              victory: 'victory-1' },
+    2: { answers: ['NDYyNw=='],                                      victory: 'victory-2' }
+};
+
+const LABYRINTH = [
+    {
+        tag: 'Location I · Tokyo',
+        q:   'We start in Tokyo. Its largest Shinto shrine is a great place to spot a traditional wedding on a Sunday and enjoy a bit of quiet in the bustling city. Try to find the large grey/white torii that marks the entrance to the main temple complex. While facing the torii, you will find some signs on a small building on your left side. One of them depicts three objects marked with a red cross. The name of the rightmost object is the word you are looking for.',
+        ans: ['Teddy Bear', 'Teddy bear', 'teddy bear', 'teddy', 'bear']
+    },
+    {
+        tag: 'Location II · Tokyo',
+        q:   'We remain in Tokyo and now head to a district known for its craft shops and food stalls. There is another famous temple in this district with souvenir shops scattered in the streets around it. Find the shop that has a green frog wearing a blue yukata displayed next to the entrance. The word you are looking for is the word for the items they are selling in the case that is located in the shop more or less across the street.',
+        ans: ['Chopsticks', 'chopsticks']
+    },
+    {
+        tag: 'Location III · Kamakura',
+        q:   'Kamakura is a seaside town close to Tokyo that was the capital of Japan from 1185 to 1333. It still houses many temples and landmarks. Close to the famous bronzen Buddha, you will find a temple that houses a large Kannon statue. Go to its terrace overlooking the bay and if you look closely you will see a couple of warning signs. The next word is the animal they are warning for.',
+        ans: ['Bird', 'bird','birds','Birds', 'Bird of prey', 'bird of prey', 'Birds of prey', 'birds of prey']
+    },
+    {
+        tag: 'Location IV · Nikko',
+        q:   'Nikko is a town in the mountains north of Tokyo, famous for housing the mausoleum of the first shogun. At the main shrine just past the entrance to the complex, there is a stable with three famous animals carved into the wood. Each animal has a different pose covering a body part. The word you are looking for is the word for body part that the animal in the middle is covering.',
+        ans: ['Mouth', 'mouth', 'the mouth']
+    },
+    {
+        tag: 'Location V · Takayama',
+        q:   'We move west to Takayama, a town in the mountainous Hida region. It is known for its beautifully preserved old town, traditional inns and its festivals. The floats used in the parades of the festival can be admired in a special museum, however one of them is also stored in a small building facing the river, not far from a bridge. The next word is the name of the float that is stored in this small building.',
+        ans: ['Gyojin Tai', 'gyojin tai', 'Gyojin tai']
+    },
+    {
+        tag: 'Location VI · Shirakawa-go',
+        q:   'Not far from Takayama is Shirakawa-go, a village famous for its traditional gassho-zukuri farmhouses, some of which are over 250 years old. It also has a small open-air museum where you can see inside the farmhouses. One of the storage rooms has a (fake) cat lying in one of the corners. If you stand facing it, you will see some shelves on the right side of a window. The word we are looking for now is the word for the items stored on the topmost shelf. ',
+        ans: ['Kettle', 'kettle', 'Teapot', 'teapot']
+    },
+    {
+        tag: 'Location VII · Kyoto',
+        q:   'On to Kyoto, another former capital. Kyoto is the heart of \'classical\' Japan, however you will find that Kyotoites are also particularly fond of French pastry. If you walk along a wellknown path of a contemplative person, you will come across one of these pastry shops. It is marked by a red iron sign and a red storefront. The next word is the (French) name of the shop.',
+        ans: ['Pomme', 'pomme']
+    },
+    {
+        tag: 'Location VIII · Kyoto',
+        q:   'Again Kyoto. One of its most famous landmarks is of course the Golden Pavilion. But not far from the Golden Temple you will find a temple that houses a famous Zen garden. Find the garden and then look behind you. In one of the rooms is a byobu depicting four people. The word you are looking for it the name of the painting on the byobu. ',
+        ans: ['Immortals', 'immortals']
+    },
+    {
+        tag: 'Location IX · Miyajima',
+        q:   'Miyajima is a small island off the coast of Hiroshima, famous for its giant torii gate that appears to float on the water during high tide. If you walk from the pagoda along the waterfront towards a statue of a lion that has a great view on the torii, you will find a sign telling you to treat something \'gently and with patience\'. The next word is the name of what they are referring to.',
+        ans: ['Deer', 'The Deer', 'deer', 'The deer on Miyajima island']
+    },
+    {
+        tag: 'Location X · Koya-San',
+        q:   'We finish at Koya-San, a mountain that is the center of Shingon Buddhism and home to over 100 temples. If you explore its main cemetery, at one point you will find a monk with a yellow and black robe walking in front of a statue of a person. The final word is the name of who the statue is depicting.',
+        ans: ['Kobo Daishi', 'kobo daishi']
+    }
+];
+
+/* ================================================================
+   STATE
+   ================================================================ */
+let labStep = 0;
+
+/* ================================================================
+   NAVIGATION
+   ================================================================ */
+function go(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'animate'));
+
+    const target = document.getElementById('screen-' + name);
+    if (!target) return;
+    target.classList.add('active');
+
+    // Force reflow so animation always replays
+    void target.offsetWidth;
+    target.classList.add('animate');
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Clear inputs when entering riddle screens
+    if (name === 'riddle-1') resetInput(1);
+    if (name === 'riddle-2') resetInput(2);
+}
+
+function resetInput(n) {
+    const el = document.getElementById('ans-' + n);
+    const fb = document.getElementById('fb-' + n);
+    if (el) { el.value = ''; el.className = 'answer-input'; }
+    if (fb) { fb.textContent = ''; fb.className = 'feedback'; }
+}
+
+/* ================================================================
+   SINGLE RIDDLE CHECKING
+   ================================================================ */
+function check(n) {
+    const el  = document.getElementById('ans-' + n);
+    const fb  = document.getElementById('fb-' + n);
+    const val = el.value.trim().toLowerCase();
+
+    if (!val) { setError(el, fb, 'Please enter an answer.'); return; }
+
+    if (RIDDLES[n].answers.map(atob).includes(val)) {
+        el.className = 'answer-input correct';
+        setFeedback(fb, '✓ Correct!', true);
+        setTimeout(() => go(RIDDLES[n].victory), 850);
+    } else {
+        setError(el, fb, 'Wrong answer! -10€ deducted from the final prize!');
+    }
+}
+
+function setError(el, fb, msg) {
+    el.classList.remove('correct');
+    el.classList.add('error');
+    fb.textContent = msg;
+    fb.className = 'feedback';
+    // Remove class instantly after animation so it can re-trigger
+    setTimeout(() => el.classList.remove('error'), 400);
+}
+
+function setFeedback(fb, msg, ok) {
+    fb.textContent = msg;
+    fb.className = ok ? 'feedback ok' : 'feedback';
+}
+
+/* ================================================================
+   LABYRINTH (MULTI-STEP)
+   ================================================================ */
+function startLabyrinth() {
+    labStep = 0;
+    renderStep();
+    go('riddle-3');
+}
+
+function renderStep() {
+    const data  = LABYRINTH[labStep];
+    const total = LABYRINTH.length;
+
+    document.getElementById('chamber-tag').textContent   = data.tag;
+    document.getElementById('chamber-q').textContent     = data.q;
+    document.getElementById('step-counter').textContent  = `Chamber ${labStep + 1} of ${total}`;
+    document.getElementById('progress-fill').style.width = ((labStep / total) * 100) + '%';
+
+    // Dots
+    const dots = document.getElementById('step-dots');
+    dots.innerHTML = '';
+    for (let i = 0; i < total; i++) {
+        const d = document.createElement('div');
+        d.className = 'dot' + (i < labStep ? ' done' : i === labStep ? ' current' : '');
+        dots.appendChild(d);
+    }
+
+    // Show the step-specific image (if any)
+    const stepImages = { 0: 'chamber-image-wrap-0', 1: 'chamber-image-wrap-1', 2: 'chamber-image-wrap-2', 3: 'chamber-image-wrap-3', 4: 'chamber-image-wrap-4', 5: 'chamber-image-wrap-5', 6: 'chamber-image-wrap-6', 7: 'chamber-image-wrap-7', 8: 'chamber-image-wrap-8', 9: 'chamber-image-wrap-9' };
+    document.querySelectorAll('[id^="chamber-image-wrap-"]').forEach(el => el.classList.add('hidden'));
+    const activeImg = stepImages[labStep];
+    if (activeImg) { const w = document.getElementById(activeImg); if (w) w.classList.remove('hidden'); }
+
+    // Reset input
+    const el = document.getElementById('ans-3');
+    const fb = document.getElementById('fb-3');
+    if (el) { el.value = ''; el.className = 'answer-input'; el.focus(); }
+    if (fb) { fb.textContent = ''; fb.className = 'feedback'; }
+}
+
+function checkStep() {
+    const el  = document.getElementById('ans-3');
+    const fb  = document.getElementById('fb-3');
+    const val = el.value.trim().toLowerCase();
+
+    if (!val) { setError(el, fb, 'The guardian awaits your answer…'); return; }
+
+    if (LABYRINTH[labStep].ans.includes(val)) {
+        el.className = 'answer-input correct';
+
+        if (labStep === LABYRINTH.length - 1) {
+            // Final step
+            setFeedback(fb, '✓ The final door opens…', true);
+            setTimeout(() => go('victory-3'), 1300);
+        } else {
+            setFeedback(fb, '✓ The door opens. You advance.', true);
+            labStep++;
+            setTimeout(() => renderStep(), 950);
+        }
+    } else {
+        setError(el, fb, 'Wrong answer! -10€ deducted from the final prize!');
+    }
+}
+
+function leaveLabyrinth() {
+    if (confirm('Leave the Path? Your progress in this attempt will be lost.')) {
+        go('select');
+    }
+}
+
+/* ================================================================
+   CROSSWORD
+   ================================================================ */
+// Grid data: each entry = { row (0-based from row2), colStart (0-based from colA=0), word }
+// Highlighted column = col N = index 13 (0-based)
+const CW_HIGHLIGHT_COL = 13;
+const CW_WORDS = [
+    { row:0,  col:13, word:'FILIPPOPOZZATO' },
+    { row:1,  col:12, word:'KORTRIJK' },
+    { row:2,  col:3,  word:'RAYMONDPOULIDOR' },
+    { row:3,  col:5,  word:'PIAZZADELCAMPO' },
+    { row:4,  col:12, word:'NOKEREBERG' },
+    { row:5,  col:2,  word:'DYLANGROENEWEGEN' },
+    { row:6,  col:7,  word:'PIAZZADELDUOMO' },
+    { row:7,  col:8,  word:'BRITSE' },
+    { row:8,  col:5,  word:'ANDREASKLIER' },
+    { row:9,  col:5,  word:'LUCAPAOLINI' },
+    { row:10, col:5,  word:'RIKVANSTEENBERGEN' },
+    { row:11, col:10, word:'POLDEMAN' },
+    { row:12, col:9,  word:'MARCELKITTEL' },
+    { row:13, col:10, word:'ANDREATAFI' },
+    { row:14, col:4,  word:'HASPENGOUW' },
+    { row:15, col:10, word:'DRUIVENSTREEK' },
+    { row:16, col:11, word:'JANRAAS' },
+    { row:17, col:3,  word:'PUCKPIETERSE' },
+    { row:18, col:0,  word:'BERNARDHINAULT' }
+];
+
+const CW_CLUES = [
+    'Deze stijlvolle Italiaanse wielrenner stond bekend om zijn flair op en naast de fiets en kreeg niet voor niets de bijnaam "Il Bello". In 2007 schreef hij deze Vlaamse klassieker op zijn naam door in de slotfase het verschil te maken en solo naar de overwinning te rijden.',
+    'Deze semi-klassieker vormt traditioneel het tweede luik van het Belgische openingsweekend en staat bekend om zijn mix van Vlaamse hellingen en winderige vlaktes, ideaal voor sterke sprinters en aanvallers. Hoewel de naam anders doet vermoeden, start de koers niet in Brussel. Ze vertrekt vanuit een West-Vlaamse stad die ook bekendstaat om haar rijke textielgeschiedenis en wielertraditie. Welke stad is dit?',
+    'Deze Waalse klassieker werd genoemd naar een zekere Jos\u00e9..., een Belgische renner die in 1969 tragisch om het leven kwam na een ongeval tijdens een criterium. Opvallend: Hij stond destijds aan de start van deze wedstrijd als vervanger van een Franse topper die op het laatste moment verstek moest geven. Die Franse renner groeide uit tot een van de grootste publiekslievelingen uit de wielergeschiedenis, kreeg de bijnaam "L\'\u00e9ternel second" en won onder meer Milaan-Sanremo en de Vuelta. Welke Franse wielerlegende werd in die wedstrijd vervangen door Jos\u00e9...?',
+    'Deze Italiaanse klassieker staat bekend om zijn spectaculaire gravelstroken en mooie Toscaanse landschappen. De koers eindigt op een iconische locatie waar de renners na een steile klim de stad binnenrijden en finishen op een wereldberoemd, schelpvormig plein in het historische centrum van Siena. Dit plein is niet alleen bekend in de wielersport, maar ook als locatie van de traditionele paardenrace, de Palio di Siena. Op welk beroemde plein ligt de aankomst van deze koers?',
+    'Deze Belgische eendagskoers staat bekend om zijn zenuwachtige finale en de typische aankomst op een verraderlijke helling met kasseien. In de slotmeters moeten de renners nog een korte maar steile inspanning leveren, waarbij positionering cruciaal is voor sprinters die willen winnen. Hoe heet de beruchte aankomsthelling waar deze koers traditioneel finisht?',
+    'De volgende op de kalender is een typische Belgische voorjaarskoers waarin wind, waaiers en een snelle finale vaak leiden tot een sprint. In de meest recente editie (2026) werd de vroege vlucht pas laat gegrepen, waarna \u00e9\u00e9n sprinter zijn inspanning van ver inzette en niemand hem nog kon passeren op weg naar de zege. Welke sprinter won in 2026?',
+    'Tot en met 2025 had deze klassieker een vaste startplek op een bekende plaats. Maar goed\u2026 alleen mensen die \u00e9lke kilometer kijken, weten dat natuurlijk (De rest zet de tv pas op als het spannend wordt). Wat is de naam van die plaats?',
+    'In de meest recente editie van deze Vlaamse voorjaarswedstrijd bij de vrouwen verraste een piepjonge renster door in de sprint gevestigde namen te kloppen. Een overwinning die meteen haar doorbraak betekende op het hoogste niveau. Wie won de meest recente Ronde van Brugge bij de vrouwen zou een te moeilijke vraag zijn. Wat was echter haar nationaliteit?',
+    'Op 26 maart 2005 won Tom Boonen deze koers, een week later volgde de Ronde van Vlaanderen. Opvallend is dat in deze twee wedstrijden het podium identiek was. Welke Duitser werd twee keer tweede? Hij was geen pure sprinter zoals Boonen, maar stond bekend als een sterke klassiekerspecialist die vaak vroeg in de aanval trok en lange tijd mee koers kon maken\u2014zo iemand die je altijd weer ziet opduiken in de finale.',
+    'Deze wedstrijd stond vroeger bekend onder een andere naam, en wie het Vlaamse voorjaar een beetje kent weet dat deze koers ooit gewoon Gent\u2013Wevelgem heette. Die wedstrijd leverde in 2015 een absolute legendarische editie op: ijskoude wind, regen, waaiers overal\u2026 en een uitgedund groepje dat in Wevelgem om de winst sprintte. Welke Italiaan won die hero\u00efsche editie van 2015?',
+    'Deze koers werd voor het eerst georganiseerd vlak na WOII en heette aanvankelijk Dwars door Belgi\u00eb. De allereerste editie vond plaats in 1945 en werd gewonnen door een Belgische wielerlegende die later zou uitgroeien tot \u00e9\u00e9n van de grootste renners van zijn generatie. Wie won die allereerste editie?',
+    'Deze man was de winnaar van de eerste Ronde van Vlaanderen in 1913.',
+    'Deze sprintkoers, vaak het offici\u00f6uze WK voor sprinters genoemd, heeft doorheen de jaren heel wat snelle mannen zien winnen. Toch is er \u00e9\u00e9n renner die er met kop en schouders bovenuit steekt, met maar liefst vijf overwinningen tussen 2012 en 2017. Welke renner is recordhouder van deze koers?',
+    'Welke Italiaanse oud-winnaar had de ambitie om in 2019, precies twintig jaar na zijn zege, als oudste deelnemer ooit aan de start te staan van deze klassieker? Vanwege een sleutelbeenbreuk mocht hij zijn plannen echter opbergen.',
+    'De volgende op de kalender trekt door een streek die in het voorjaar bekendstaat om haar bloesems, uitgestrekte boomgaarden en glooiende wegen die doen denken aan een mini-Ardennen voor sprinters met inhoud. Niet alleen wielertoeristen, maar ook fruitliefhebbers kennen deze regio maar al te goed. In welke Limburgse streek speelt deze koers zich voornamelijk af?',
+    'Deze Pijl slingert door een streek die bekendstaat om haar korte hellingen en pittoreske dorpen, maar ook om een heel ander traditioneel product. In het najaar komen hier heel wat liefhebbers samen voor een lokaal streekproduct dat perfect past bij een zonnig terras. In welke streek wordt deze koers gereden?',
+    'Dan volgt d\u00e9 Nederlandse klassieker, die bekendstaat om zijn opeenvolging van korte klimmetjes zoals de Cauberg. In de beginjaren werd de koers gedomineerd door \u00e9\u00e9n Nederlander, die ze maar liefst vijf keer wist te winnen en zo lange tijd recordhouder was. Welke Nederlandse renner won maar liefst vijf keer?',
+    'De eerste echte Waalse klassieker eindigt traditioneel op de loodzware Muur van Hoei, waar punchers het verschil maken in de laatste hectische meters. In 2025 kregen we een verrassende winnares: een jonge Nederlandse renster die bij haar debuut meteen raak schoot door topfavoriete Demi Vollering te kloppen op de slotklim. Welke renster won de Waalse Pijl voor vrouwen in 2025?',
+    '1980: de editie die ook bekend staat als Neig-Bastogne-Neige. De omstandigheden zijn bar en broos. Vanwege sneeuw en kou fietsen slechts 21 van de 174 renners de koers uit. Een daarvan wint hem na een solo die hij inzette om warm te worden. Wie?'
+];
+
+function buildCrossword() {
+    // Determine grid dimensions
+    const ROWS = 19;
+    const COLS = 27; // A=0 .. AA=26
+    const grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+
+    CW_WORDS.forEach(({row, col, word}) => {
+        for (let i = 0; i < word.length; i++) {
+            grid[row][col + i] = word[i];
+        }
+    });
+
+    const container = document.getElementById('cw-grid');
+    container.style.gridTemplateColumns = `22px repeat(${COLS}, 28px)`;
+    container.innerHTML = '';
+
+    for (let r = 0; r < ROWS; r++) {
+        // Row number cell
+        const numCell = document.createElement('div');
+        numCell.className = 'cw-cell row-num';
+        numCell.textContent = r + 1;
+        container.appendChild(numCell);
+
+        for (let c = 0; c < COLS; c++) {
+            const cell = document.createElement('div');
+            if (grid[r][c] === null) {
+                cell.className = 'cw-cell empty';
+            } else {
+                const isHL = (c === CW_HIGHLIGHT_COL);
+                cell.className = 'cw-cell' + (isHL ? ' highlight' : '');
+                const inp = document.createElement('input');
+                inp.type = 'text';
+                inp.maxLength = 1;
+                inp.className = 'cw-input';
+                inp.autocomplete = 'off';
+                inp.spellcheck = false;
+                inp.dataset.row = r;
+                inp.dataset.col = c;
+                inp.addEventListener('input', function() {
+                    this.value = this.value.toUpperCase().slice(-1);
+                    if (isHL) updateGoldenDisplay();
+                    if (this.value.length === 1) {
+                        const next = document.querySelector(`input.cw-input[data-row="${r}"][data-col="${c + 1}"]`);
+                        if (next) next.focus();
+                    }
+                });
+                inp.addEventListener('keydown', function(e) {
+                    if (e.key === 'Backspace' && this.value === '') {
+                        const prev = document.querySelector(`input.cw-input[data-row="${r}"][data-col="${c - 1}"]`);
+                        if (prev) { prev.focus(); prev.value = ''; if (isHL) updateGoldenDisplay(); }
+                    }
+                });
+                cell.appendChild(inp);
+            }
+            container.appendChild(cell);
+        }
+    }
+
+    // Build number buttons 1-19
+    const btnWrap = document.getElementById('cw-buttons');
+    btnWrap.innerHTML = '';
+    for (let i = 1; i <= 19; i++) {
+        const b = document.createElement('button');
+        b.className = 'cw-btn';
+        b.textContent = i;
+        b.addEventListener('click', () => openClue(i));
+        btnWrap.appendChild(b);
+    }
+
+    // Build golden word display
+    updateGoldenDisplay();
+}
+
+function updateGoldenDisplay() {
+    const letters = [];
+    for (let r = 0; r < 19; r++) {
+        const inp = document.querySelector(`input.cw-input[data-row="${r}"][data-col="${CW_HIGHLIGHT_COL}"]`);
+        letters.push(inp && inp.value ? inp.value.toUpperCase() : '_');
+    }
+    const el = document.getElementById('cw-golden-display');
+    if (el) el.textContent = letters.join(' ');
+}
+
+function openClue(n) {
+    document.getElementById('cw-pop-num').textContent = n;
+    document.getElementById('cw-pop-text').textContent = CW_CLUES[n - 1];
+    document.getElementById('cw-clue-hint').textContent = CW_CLUES[n - 1];
+    document.getElementById('cw-popup').classList.add('open');
+}
+
+function closeCluePop(e) {
+    if (e.target === document.getElementById('cw-popup')) {
+        document.getElementById('cw-popup').classList.remove('open');
+    }
+}
+
+// Build crossword when riddle-2 screen is entered
+const _SECRETS = { 'victory-1': 'Nw==', 'victory-2': 'Mw==', 'victory-3': 'NDI=' };
+const _SECRET_IDS = { 'victory-1': 'secret-1', 'victory-2': 'secret-2', 'victory-3': 'secret-3' };
+const _origGo = go;
+window.go = function(name) {
+    _origGo(name);
+    if (name === 'riddle-2') {
+        setTimeout(buildCrossword, 50);
+    }
+    if (_SECRETS[name]) {
+        const el = document.getElementById(_SECRET_IDS[name]);
+        if (el) el.textContent = atob(_SECRETS[name]);
+    }
+};
+
+
+(function () {
+    const canvas = document.getElementById('canvas-bg');
+    const ctx    = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+        canvas.width  = window.innerWidth;
+        canvas.height = window.innerHeight;
+        initStars();
+    }
+
+    function initStars() {
+        stars = [];
+        const n = Math.floor((canvas.width * canvas.height) / 7500);
+        for (let i = 0; i < n; i++) {
+            stars.push({
+                x:     Math.random() * canvas.width,
+                y:     Math.random() * canvas.height,
+                r:     Math.random() * 1.1 + 0.2,
+                alpha: Math.random() * 0.45 + 0.08,
+                da:    (Math.random() - 0.5) * 0.012
+            });
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (const s of stars) {
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(210, 190, 150, ${s.alpha})`;
+            ctx.fill();
+            s.alpha += s.da;
+            if (s.alpha > 0.55 || s.alpha < 0.05) s.da *= -1;
+        }
+        requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+    draw();
+})();
+</script>
+</body>
+</html>
